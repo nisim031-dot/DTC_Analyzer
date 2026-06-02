@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- INTERNET נדרש רק להורדת מודל ML Kit באונבורדינג; התרגום עצמו אופליין. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- fallback ל-overlay אם TYPE_ACCESSIBILITY_OVERLAY לא עובד על המכשיר הנעול -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="false"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.DayNight">
+
+        <activity
+            android:name=".ui.OnboardingActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- שירות הנגישות: מקור הטקסט הראשי + אירוח ה-overlay -->
+        <service
+            android:name=".service.XtoolAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice.AccessibilityServiceConfig"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- foreground service ללכידת מסך עבור נפילת ה-OCR -->
+        <service
+            android:name=".capture.ScreenCaptureService"
+            android:exported="false" />
+
+    </application>
+</manifest>
