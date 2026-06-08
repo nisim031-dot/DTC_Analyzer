@@ -55,12 +55,14 @@ class XtoolAccessibilityService : AccessibilityService() {
         } catch (e: Throwable) {
             CrashLog.log(applicationContext, "overlay-init", e)
         }
-        val mlkit: MlKitTranslator? = try {
-            MlKitTranslator()
-        } catch (e: Throwable) {
-            CrashLog.log(applicationContext, "mlkit-init", e)
-            null
-        }
+        val mlkit: MlKitTranslator? = if (MLKIT_ENABLED) {
+            try {
+                MlKitTranslator()
+            } catch (e: Throwable) {
+                CrashLog.log(applicationContext, "mlkit-init", e)
+                null
+            }
+        } else null
         translator = mlkit
         try {
             repository = TranslationRepository.create(applicationContext, mlkit)
@@ -97,8 +99,9 @@ class XtoolAccessibilityService : AccessibilityService() {
             val nodes = ArrayList<DetectedText>()
             collectText(root, nodes)
 
+            // OCR משתמש גם הוא ב-ML Kit native — מדלגים עליו כשהמנוע מכובה
             val detected: List<DetectedText> =
-                if (TextHeuristics.shouldFallbackToOcr(nodes, screen)) {
+                if (MLKIT_ENABLED && TextHeuristics.shouldFallbackToOcr(nodes, screen)) {
                     runOcr() ?: nodes
                 } else {
                     nodes
@@ -154,5 +157,9 @@ class XtoolAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val THROTTLE_MS = 800L
+
+        // כבוי: מצב יציב מבוסס-מילון בלבד, ללא ML Kit (שקרס ברמת native על המכשיר).
+        // כשנפתור את ML Kit נהפוך ל-true כדי לאפשר תרגום טקסט חופשי + OCR.
+        private const val MLKIT_ENABLED = false
     }
 }

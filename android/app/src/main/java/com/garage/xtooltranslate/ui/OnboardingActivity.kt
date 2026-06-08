@@ -13,14 +13,11 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import com.garage.xtooltranslate.R
 import com.garage.xtooltranslate.capture.MediaProjectionHolder
 import com.garage.xtooltranslate.capture.ScreenCaptureService
 import com.garage.xtooltranslate.service.XtoolAccessibilityService
-import com.garage.xtooltranslate.translate.MlKitTranslator
 import android.media.projection.MediaProjectionManager
-import kotlinx.coroutines.launch
 
 /**
  * אשף הרשאות בעברית. כל שלב כולל כפתור "פתח הגדרות" ובדיקת סטטוס חיה.
@@ -151,20 +148,9 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun downloadModel() {
-        modelStatus.text = getString(R.string.model_downloading)
-        lifecycleScope.launch {
-            val translator = MlKitTranslator()
-            try {
-                // לא דורשים Wi-Fi לא-מדוד — אחרת ההורדה נתקעת על חיבור "מדוד"
-                translator.ensureModelDownloaded(requireWifi = false)
-                toast("מודל העברית הורד")
-            } catch (e: Exception) {
-                toast("הורדת המודל נכשלה: ${e.message}")
-            } finally {
-                translator.close()
-                refreshStatuses()
-            }
-        }
+        // בגרסה זו התרגום מבוסס-מילון בלבד (ML Kit מכובה) — אין צורך להוריד מודל.
+        modelStatus.text = getString(R.string.status_done)
+        toast("גרסה זו עובדת עם המילון המובנה — אין צורך במודל")
     }
 
     private fun refreshStatuses() {
