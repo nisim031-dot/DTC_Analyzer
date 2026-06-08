@@ -12,6 +12,13 @@ from datetime import datetime
 
 sys.stdout.reconfigure(encoding="utf-8")
 
+# טעינת משתני סביבה מקובץ .env (אם python-dotenv מותקן)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # ─────────────────────────────────────────
 # ייבוא מ-DTC Analyzer
 # ─────────────────────────────────────────
