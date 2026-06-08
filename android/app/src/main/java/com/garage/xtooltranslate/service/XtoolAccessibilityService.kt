@@ -36,25 +36,36 @@ class XtoolAccessibilityService : AccessibilityService() {
         Log.e("XtoolAccessibility", "refresh failed", e)
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + errorHandler)
-    private lateinit var translator: MlKitTranslator
+    private var translator: MlKitTranslator? = null
     private lateinit var repository: TranslationRepository
     private lateinit var overlay: OverlayController
-    private val ocrEngine = OcrEngine()
+    // עצלן: נוצר רק כשבאמת צריך OCR, כדי שטעינת ML Kit לא תקרה בהפעלת השירות
+    private val ocrEngine by lazy { OcrEngine() }
 
     private var lastRun = 0L
     private var inFlight: Job? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        // השכבה החיונית (overlay + מילון) תמיד עולה. ML Kit נטען בנפרד ובזהירות,
+        // כי טעינת ה-native שלו עלולה לזרוק Error (לא Exception) ולהפיל את השירות.
         try {
-            translator = MlKitTranslator()
-            repository = TranslationRepository.create(applicationContext, translator)
             overlay = OverlayController(this, useAccessibilityOverlay = true)
             overlay.show()
-        } catch (e: Exception) {
-            // לא מפילים את השירות (שיגרום ל-restart-loop) — רושמים ללוג
-            CrashLog.log(applicationContext, "onServiceConnected", e)
-            Log.e("XtoolAccessibility", "init failed", e)
+        } catch (e: Throwable) {
+            CrashLog.log(applicationContext, "overlay-init", e)
+        }
+        val mlkit: MlKitTranslator? = try {
+            MlKitTranslator()
+        } catch (e: Throwable) {
+            CrashLog.log(applicationContext, "mlkit-init", e)
+            null
+        }
+        translator = mlkit
+        try {
+            repository = TranslationRepository.create(applicationContext, mlkit)
+        } catch (e: Throwable) {
+            CrashLog.log(applicationContext, "repository-init", e)
         }
     }
 
@@ -136,8 +147,8 @@ class XtoolAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         scope.cancel()
         if (::overlay.isInitialized) overlay.hide()
-        if (::translator.isInitialized) translator.close()
-        ocrEngine.close()
+        runCatching { translator?.close() }
+        runCatching { ocrEngine.close() }
         super.onDestroy()
     }
 

@@ -11,7 +11,8 @@ import com.garage.xtooltranslate.util.TextHeuristics
  */
 class TranslationRepository(
     private val dictionary: DtcDictionary,
-    private val translator: MlKitTranslator,
+    // עשוי להיות null אם ML Kit נכשל באתחול — אז עובדים במצב מילון-בלבד
+    private val translator: MlKitTranslator?,
     private val cache: TranslationCache = TranslationCache(),
 ) {
     /** תרגום מחרוזת בודדת לפי סדר העדיפויות. */
@@ -19,18 +20,19 @@ class TranslationRepository(
         val source = text.trim()
         if (!TextHeuristics.isLikelyTranslatable(source)) return null
 
-        // 1) מילון DTC/מונחים — מדויק ומיידי
+        // 1) מילון DTC/מונחים — מדויק ומיידי (עובד גם בלי ML Kit)
         dictionary.lookup(source)?.let { return it }
 
         // 2) מטמון
         cache.get(source)?.let { return it }
 
-        // 3) ML Kit אופליין
+        // 3) ML Kit אופליין (אם זמין)
+        val t = translator ?: return null
         return try {
-            val hebrew = translator.translate(source)
+            val hebrew = t.translate(source)
             cache.put(source, hebrew)
             hebrew
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             null
         }
     }
@@ -42,7 +44,7 @@ class TranslationRepository(
         }
 
     companion object {
-        fun create(context: Context, translator: MlKitTranslator): TranslationRepository =
+        fun create(context: Context, translator: MlKitTranslator?): TranslationRepository =
             TranslationRepository(DtcDictionary.load(context), translator)
     }
 }

@@ -155,7 +155,8 @@ class OnboardingActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val translator = MlKitTranslator()
             try {
-                translator.ensureModelDownloaded(requireWifi = true)
+                // לא דורשים Wi-Fi לא-מדוד — אחרת ההורדה נתקעת על חיבור "מדוד"
+                translator.ensureModelDownloaded(requireWifi = false)
                 toast("מודל העברית הורד")
             } catch (e: Exception) {
                 toast("הורדת המודל נכשלה: ${e.message}")
