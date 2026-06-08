@@ -9,6 +9,7 @@ import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -59,7 +60,7 @@ class OnboardingActivity : AppCompatActivity() {
     private fun buildLayout(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 64, 48, 48)
+            setPadding(48, 64, 48, 96)
         }
         root.addView(TextView(this).apply {
             text = getString(R.string.onboarding_title)
@@ -69,12 +70,12 @@ class OnboardingActivity : AppCompatActivity() {
 
         accessibilityStatus = addStep(
             root, R.string.step_accessibility, R.string.open_settings,
-        ) { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        ) { safeStartActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
 
         overlayStatus = addStep(
             root, R.string.step_overlay, R.string.open_settings,
         ) {
-            startActivity(
+            safeStartActivity(
                 Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:$packageName"),
@@ -93,7 +94,7 @@ class OnboardingActivity : AppCompatActivity() {
         addStep(
             root, R.string.step_battery, R.string.open_settings,
         ) {
-            startActivity(
+            safeStartActivity(
                 Intent(
                     Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
                     Uri.parse("package:$packageName"),
@@ -101,7 +102,17 @@ class OnboardingActivity : AppCompatActivity() {
             )
         }
 
-        return root
+        // עוטף ב-ScrollView כדי שכל 5 השלבים יהיו נגישים על מסך קטן (1024x600)
+        return ScrollView(this).apply { addView(root) }
+    }
+
+    /** פותח מסך הגדרות בבטחה — לא מפיל את האפליקציה אם המסך לא קיים במכשיר הנעול. */
+    private fun safeStartActivity(intent: Intent) {
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            toast("לא ניתן לפתוח את מסך ההגדרות הזה במכשיר")
+        }
     }
 
     private fun addStep(

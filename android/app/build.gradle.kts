@@ -14,8 +14,8 @@ android {
         // נשאר על 29 בכוונה — תואם ל-D7BT (Android 10) ונמנע ממגבלות
         // foreground-service/overlay המחמירות של API 30+.
         targetSdk = 29
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {

@@ -39,8 +39,15 @@ class OverlayController(
             PixelFormat.TRANSLUCENT,
         ).apply { gravity = Gravity.TOP or Gravity.START }
 
-        windowManager.addView(overlay, params)
-        view = overlay
+        val added = runCatching { windowManager.addView(overlay, params) }.isSuccess
+        if (added) {
+            view = overlay
+        } else if (type == WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY) {
+            // נפילה ל-TYPE_APPLICATION_OVERLAY אם סוג הנגישות נכשל על המכשיר הנעול
+            params.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            runCatching { windowManager.addView(overlay, params) }
+                .onSuccess { view = overlay }
+        }
     }
 
     fun update(labels: List<RenderedLabel>) {

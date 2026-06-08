@@ -12,6 +12,9 @@ import com.garage.xtooltranslate.overlay.OverlayController
 import com.garage.xtooltranslate.translate.MlKitTranslator
 import com.garage.xtooltranslate.translate.TranslationRepository
 import com.garage.xtooltranslate.util.TextHeuristics
+import android.util.Log
+import com.garage.xtooltranslate.util.CrashLog
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,7 +30,12 @@ import kotlinx.coroutines.launch
  */
 class XtoolAccessibilityService : AccessibilityService() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // מטפל שגיאות גלובלי לקורוטינות — מונע קריסת האפליקציה אם רענון נכשל
+    private val errorHandler = CoroutineExceptionHandler { _, e ->
+        CrashLog.log(applicationContext, "coroutine", e)
+        Log.e("XtoolAccessibility", "refresh failed", e)
+    }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + errorHandler)
     private lateinit var translator: MlKitTranslator
     private lateinit var repository: TranslationRepository
     private lateinit var overlay: OverlayController
@@ -38,14 +46,23 @@ class XtoolAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        translator = MlKitTranslator()
-        repository = TranslationRepository.create(applicationContext, translator)
-        overlay = OverlayController(this, useAccessibilityOverlay = true)
-        overlay.show()
+        try {
+            translator = MlKitTranslator()
+            repository = TranslationRepository.create(applicationContext, translator)
+            overlay = OverlayController(this, useAccessibilityOverlay = true)
+            overlay.show()
+        } catch (e: Exception) {
+            // לא מפילים את השירות (שיגרום ל-restart-loop) — רושמים ללוג
+            CrashLog.log(applicationContext, "onServiceConnected", e)
+            Log.e("XtoolAccessibility", "init failed", e)
+        }
     }
 
+    /** האם האתחול הצליח — אם לא, מתעלמים מאירועים. */
+    private fun isReady(): Boolean = ::repository.isInitialized && ::overlay.isInitialized
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event == null) return
+        if (event == null || !isReady()) return
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
@@ -63,21 +80,25 @@ class XtoolAccessibilityService : AccessibilityService() {
     }
 
     private suspend fun refresh() {
-        val root = rootInActiveWindow ?: return
-        val screen = Rect().also { root.getBoundsInScreen(it) }
-        val nodes = ArrayList<DetectedText>()
-        collectText(root, nodes)
+        try {
+            val root = rootInActiveWindow ?: return
+            val screen = Rect().also { root.getBoundsInScreen(it) }
+            val nodes = ArrayList<DetectedText>()
+            collectText(root, nodes)
 
-        val detected: List<DetectedText> =
-            if (TextHeuristics.shouldFallbackToOcr(nodes, screen)) {
-                runOcr() ?: nodes
-            } else {
-                nodes
-            }
+            val detected: List<DetectedText> =
+                if (TextHeuristics.shouldFallbackToOcr(nodes, screen)) {
+                    runOcr() ?: nodes
+                } else {
+                    nodes
+                }
 
-        val labels = repository.translateBatch(detected)
-        // עדכון ה-overlay חייב לרוץ ב-thread הראשי
-        scope.launch(Dispatchers.Main) { overlay.update(labels) }
+            val labels = repository.translateBatch(detected)
+            // עדכון ה-overlay חייב לרוץ ב-thread הראשי
+            scope.launch(Dispatchers.Main) { overlay.update(labels) }
+        } catch (e: Exception) {
+            CrashLog.log(applicationContext, "refresh", e)
+        }
     }
 
     /** הליכה רקורסיבית על עץ הצמתים ואיסוף טקסט עם גבולות מסך. */
@@ -109,13 +130,13 @@ class XtoolAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        overlay.clear()
+        if (::overlay.isInitialized) overlay.clear()
     }
 
     override fun onDestroy() {
         scope.cancel()
-        overlay.hide()
-        translator.close()
+        if (::overlay.isInitialized) overlay.hide()
+        if (::translator.isInitialized) translator.close()
         ocrEngine.close()
         super.onDestroy()
     }

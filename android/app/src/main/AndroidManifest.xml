@@ -38,9 +38,11 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- foreground service ללכידת מסך עבור נפילת ה-OCR -->
+        <!-- foreground service ללכידת מסך עבור נפילת ה-OCR.
+             foregroundServiceType=mediaProjection חובה באנדרואיד 10 (Q) -->
         <service
             android:name=".capture.ScreenCaptureService"
+            android:foregroundServiceType="mediaProjection"
             android:exported="false" />
 
     </application>

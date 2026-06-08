@@ -38,14 +38,28 @@ class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, buildNotification())
+        // באנדרואיד 10 (Q) חובה להכריז על סוג mediaProjection אחרת getMediaProjection קורס
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIF_ID, buildNotification(),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+            )
+        } else {
+            startForeground(NOTIF_ID, buildNotification())
+        }
 
         if (!MediaProjectionHolder.hasPermission()) {
             stopSelf()
             return START_NOT_STICKY
         }
         instance = this
-        setupProjection()
+        try {
+            setupProjection()
+        } catch (e: Exception) {
+            // אם הלכידה נכשלת — לא מפילים את כל האפליקציה, פשוט עוצרים את השירות
+            instance = null
+            stopSelf()
+        }
         return START_STICKY
     }
 
