@@ -38,6 +38,17 @@ android {
     buildFeatures {
         viewBinding = true
     }
+
+    // מפצל את ה-APK לפי ארכיטקטורת מעבד — הטאבלט הוא ARM, אין צורך ב-x86.
+    // מקטין כל APK מ-~116MB לכ-35MB.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
+        }
+    }
 }
 
 dependencies {

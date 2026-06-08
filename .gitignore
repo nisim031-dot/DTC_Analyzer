@@ -6,3 +6,4 @@ venv/
 *.html
 *.txt
 .claude/
+*.apk
