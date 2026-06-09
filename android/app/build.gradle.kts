@@ -14,13 +14,28 @@ android {
         // נשאר על 29 בכוונה — תואם ל-D7BT (Android 10) ונמנע ממגבלות
         // foreground-service/overlay המחמירות של API 30+.
         targetSdk = 29
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.5.0"
+    }
+
+    // מפתח חתימה קבוע (נשמר ב-git) — כדי שעדכוני APK יתקינו מעל גרסאות קודמות.
+    // בלי זה, חתימה שונה בכל בנייה מונעת עדכון ("App not installed").
+    signingConfigs {
+        create("stable") {
+            storeFile = file("xtool-release.keystore")
+            storePassword = "xtool123"
+            keyAlias = "xtool"
+            keyPassword = "xtool123"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("stable")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("stable")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
