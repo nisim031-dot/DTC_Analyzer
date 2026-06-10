@@ -7,3 +7,4 @@ venv/
 *.txt
 .claude/
 *.apk
+local.properties
