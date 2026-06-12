@@ -13,6 +13,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        ndk {
+            // גם 32-ביט וגם 64-ביט באותו קובץ — תואם לכל טאבלט ARM
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
     }
 
     compileOptions {
@@ -26,15 +30,6 @@ android {
     buildTypes {
         getByName("debug") {
             isMinifyEnabled = false
-        }
-    }
-
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a")
-            isUniversalApk = false
         }
     }
 }
