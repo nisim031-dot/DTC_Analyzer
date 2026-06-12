@@ -14,8 +14,8 @@ android {
         versionCode = 1
         versionName = "1.0"
         ndk {
-            // גם 32-ביט וגם 64-ביט באותו קובץ — תואם לכל טאבלט ARM
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+            // 32-ביט בלבד — עובד על כל מעבד ARM (גם 64-ביט), וקובץ קטן
+            abiFilters += listOf("armeabi-v7a")
         }
     }
 
