@@ -6,8 +6,11 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 import com.google.mlkit.common.model.DownloadConditions
 import java.util.concurrent.ConcurrentHashMap
 
-/** תוצאת תרגום — טקסט בעברית + חומרה (RED/YELLOW/GREEN) אם זה קוד DTC ידוע. */
-data class TransResult(val text: String, val severity: String? = null)
+/**
+ * תוצאת תרגום — טקסט בעברית + חומרה (RED/YELLOW/GREEN) אם זה קוד DTC ידוע.
+ * known=true רק לתרגום ודאי (קוד DTC או מונח מהמילון); false לתרגום מכונה.
+ */
+data class TransResult(val text: String, val severity: String? = null, val known: Boolean = false)
 
 /**
  * מנוע "היברידי": קוד DTC ידוע → מבסיס הידע (הסבר+חומרה+פעולה),
@@ -31,14 +34,14 @@ object TranslationEngine {
     fun resolve(src: String, callback: (TransResult) -> Unit) {
         // 1. קוד DTC ידוע → הסבר + חומרה + פעולה
         Knowledge.findDtc(src)?.let { (code, info) ->
-            callback(TransResult("$code — ${info.titleHe}\n↪ ${info.actionHe}", info.severity))
+            callback(TransResult("$code — ${info.titleHe}\n↪ ${info.actionHe}", info.severity, known = true))
             return
         }
 
         // 2. מונח סורק במילון המקצועי (התאמה מדויקת, חסר תלות ברישיות)
         val key = src.trim().lowercase()
         Knowledge.GLOSSARY[key]?.let {
-            callback(TransResult(it))
+            callback(TransResult(it, known = true))
             return
         }
 

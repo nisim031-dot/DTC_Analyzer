@@ -28,6 +28,7 @@ object OverlayLayer {
 
     private var wm: WindowManager? = null
     private var frame: FrameLayout? = null
+    private var lastKey: String? = null   // מונע ציור מחדש של תוכן זהה (אנטי-הבהוב)
 
     fun show(ctx: Context) {
         if (frame != null) return
@@ -59,17 +60,20 @@ object OverlayLayer {
     /** מצייר את כל התרגומים במיקום המקורי שלהם על המסך. */
     fun render(items: List<OverlayItem>) {
         val f = frame ?: return
+        val key = items.joinToString("|") { "${it.rect.left},${it.rect.top}:${it.he}" }
         f.post {
+            if (key == lastKey) return@post   // תוכן זהה למה שכבר מצויר → אל תצייר מחדש
+            lastKey = key
             f.removeAllViews()
             for (it in items) {
                 val tv = TextView(f.context).apply {
                     text = it.he
                     setTextColor(0xFFFFFFFF.toInt())
-                    textSize = 13f
-                    setPadding(8, 2, 8, 2)
+                    textSize = 15f
+                    setPadding(14, 6, 14, 6)
                     setBackgroundColor(SEV_BG[it.severity] ?: DEFAULT_BG)
                     textDirection = View.TEXT_DIRECTION_RTL
-                    maxLines = 2
+                    maxLines = 1
                 }
                 val lp = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -83,11 +87,17 @@ object OverlayLayer {
     }
 
     fun clear() {
-        frame?.post { frame?.removeAllViews() }
+        val f = frame ?: return
+        f.post {
+            if (lastKey == null && f.childCount == 0) return@post
+            lastKey = null
+            f.removeAllViews()
+        }
     }
 
     fun hide() {
         frame?.let { wm?.removeView(it) }
         frame = null
+        lastKey = null
     }
 }

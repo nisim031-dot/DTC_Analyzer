@@ -97,9 +97,8 @@ class LiveTranslateService : Service() {
 
             val sig = signature(bmp)
             if (changed(sig, lastSignature)) {
-                // המסך השתנה → הסר תרגום ישן מיד, ושמור את הפריים לסריקה כשייצב
+                // המסך השתנה → שמור את הפריים, ותרגם רק כשייצב (render אטומי מחליף את הישן)
                 lastSignature = sig
-                OverlayLayer.clear()
                 pendingBmp?.recycle()
                 pendingBmp = bmp
                 scheduleStableScan()
@@ -152,11 +151,12 @@ class LiveTranslateService : Service() {
         return px
     }
 
+    /** פחות רגיש — ריצוד רקע/טקסטורה לא נחשב "שינוי מסך", רק מעבר אמיתי. */
     private fun changed(now: IntArray, prev: IntArray?): Boolean {
         if (prev == null) return true
         var diff = 0
-        for (i in now.indices) if (abs(now[i] - prev[i]) > 24) diff++
-        return diff > 3
+        for (i in now.indices) if (abs(now[i] - prev[i]) > 40) diff++
+        return diff > 8
     }
 
     private fun runOcr(bmp: Bitmap) {
@@ -177,8 +177,9 @@ class LiveTranslateService : Service() {
                     val t = line.text.trim()
                     val box = line.boundingBox!!
                     TranslationEngine.resolve(t) { r ->
-                        items.add(OverlayItem(box, r.text, r.severity))
+                        // פאנל בצד: הכל. שכבת AR: רק תרגומים מוכרים (מילון/DTC) — נקי ולא צפוף.
                         FloatingBubble.append(t, r.text, r.severity)
+                        if (r.known) items.add(OverlayItem(box, r.text, r.severity))
                         if (r.severity == "RED") Alerts.redAlert(this)
                         // רק הסריקה העדכנית ביותר מציירת
                         if (--pending == 0 && myGen == generation) OverlayLayer.render(items)
