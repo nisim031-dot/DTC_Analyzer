@@ -23,25 +23,36 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlin.math.abs
 
-/** לכידת מסך חכמה (רק כשהמסך משתנה) → OCR → תרגום → פאנל + שכבת AR + התראה. */
+/**
+ * לכידת מסך → "תרגם רק כשהמסך מתייצב":
+ * בכל שינוי מסך מנקים מיד את שכבת ה-AR (כדי שכתוביות ישנות לא יישארו),
+ * ומריצים OCR פעם אחת ~0.6ש' אחרי שהמסך נרגע. פחות עומס, בלי "תקיעות".
+ */
 class LiveTranslateService : Service() {
+
+    private companion object {
+        const val FRAME_THROTTLE = 150L   // מינ' זמן בין בדיקות פריים
+        const val STABLE_DELAY = 600L     // המתנה לייצוב המסך לפני OCR
+        const val MAX_ITEMS = 30          // מקס' כתוביות צמודות על המסך
+    }
 
     private var projection: MediaProjection? = null
     private var reader: ImageReader? = null
     private var virtualDisplay: VirtualDisplay? = null
 
-    private var lastRun = 0L
-    @Volatile private var busy = false
+    private var lastFrameAt = 0L
     private var lastSignature: IntArray? = null
-    private var generation = 0   // מונע דריסת overlay מפריים ישן
+    private var generation = 0
+    private var pendingBmp: Bitmap? = null
+    private var stableTask: Runnable? = null
 
     private val ocr = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val handler = Handler(Looper.getMainLooper())
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(1, buildNotification())
-        OverlayLayer.show(this)   // שכבת AR מתחת
-        FloatingBubble.show(this) // הבועה מעל
+        OverlayLayer.show(this)
+        FloatingBubble.show(this)
         TranslationEngine.warmUp()
 
         val code = intent?.getIntExtra("code", Activity.RESULT_CANCELED) ?: Activity.RESULT_CANCELED
@@ -76,25 +87,38 @@ class LiveTranslateService : Service() {
         r.setOnImageAvailableListener({ ir ->
             val img = ir.acquireLatestImage() ?: return@setOnImageAvailableListener
             val now = System.currentTimeMillis()
-            if (busy || now - lastRun < 500) {
+            if (now - lastFrameAt < FRAME_THROTTLE) {
                 img.close()
                 return@setOnImageAvailableListener
             }
-            lastRun = now
-            busy = true
+            lastFrameAt = now
             val bmp = toBitmap(img)
             img.close()
 
-            // מצב חכם: לדלג אם המסך לא השתנה מהותית
             val sig = signature(bmp)
-            if (!changed(sig, lastSignature)) {
+            if (changed(sig, lastSignature)) {
+                // המסך השתנה → הסר תרגום ישן מיד, ושמור את הפריים לסריקה כשייצב
+                lastSignature = sig
+                OverlayLayer.clear()
+                pendingBmp?.recycle()
+                pendingBmp = bmp
+                scheduleStableScan()
+            } else {
                 bmp.recycle()
-                busy = false
-                return@setOnImageAvailableListener
             }
-            lastSignature = sig
-            runOcr(bmp)
         }, handler)
+    }
+
+    /** מתזמן סריקת OCR אחת אחרי שהמסך מתייצב. כל שינוי מאפס את הטיימר. */
+    private fun scheduleStableScan() {
+        stableTask?.let { handler.removeCallbacks(it) }
+        val task = Runnable {
+            val bmp = pendingBmp ?: return@Runnable
+            pendingBmp = null
+            runOcr(bmp)
+        }
+        stableTask = task
+        handler.postDelayed(task, STABLE_DELAY)
     }
 
     private fun toBitmap(img: Image): Bitmap {
@@ -141,6 +165,7 @@ class LiveTranslateService : Service() {
                 val lines = vt.textBlocks
                     .flatMap { it.lines }
                     .filter { it.text.trim().length >= 2 && it.boundingBox != null }
+                    .take(MAX_ITEMS)
                 if (lines.isEmpty()) {
                     OverlayLayer.clear()
                     return@addOnSuccessListener
@@ -155,14 +180,13 @@ class LiveTranslateService : Service() {
                         items.add(OverlayItem(box, r.text, r.severity))
                         FloatingBubble.append(t, r.text, r.severity)
                         if (r.severity == "RED") Alerts.redAlert(this)
-                        // רק הפריים העדכני ביותר מצייר — מונע דריסה בנתונים ישנים
+                        // רק הסריקה העדכנית ביותר מציירת
                         if (--pending == 0 && myGen == generation) OverlayLayer.render(items)
                     }
                 }
             }
             .addOnCompleteListener {
                 bmp.recycle()
-                busy = false
             }
     }
 
@@ -183,6 +207,9 @@ class LiveTranslateService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stableTask?.let { handler.removeCallbacks(it) }
+        pendingBmp?.recycle()
+        pendingBmp = null
         virtualDisplay?.release()
         reader?.close()
         projection?.stop()
