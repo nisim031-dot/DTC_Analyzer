@@ -12,7 +12,7 @@ class HybridReaderService : AccessibilityService() {
         val texts = ArrayList<String>()
         collectText(root, texts)
         for (t in texts.distinct().take(20)) {
-            TranslationEngine.translate(t) { he -> FloatingBubble.append(t, he) }
+            TranslationEngine.resolve(t) { r -> FloatingBubble.append(t, r.text, r.severity) }
         }
     }
 

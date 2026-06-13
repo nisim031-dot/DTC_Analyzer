@@ -11,13 +11,23 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import kotlin.math.abs
 
-/** הבועה הצפה: אייקון קטן + פאנל תרגום מתעדכן בעברית (RTL). */
+/** הבועה הצפה: אייקון (צבעו לפי חומרת DTC) + פאנל תרגום בעברית (RTL). */
 object FloatingBubble {
+
+    private const val BLUE = 0xCC1565C0.toInt()
+    private val SEV_COLOR = mapOf(
+        "RED" to 0xCCC0392B.toInt(),
+        "YELLOW" to 0xCCD4A017.toInt(),
+        "GREEN" to 0xCC27AE60.toInt()
+    )
+    private val SEV_RANK = mapOf("RED" to 0, "YELLOW" to 1, "GREEN" to 2)
 
     private var wm: WindowManager? = null
     private var root: LinearLayout? = null
     private var panel: TextView? = null
+    private var icon: TextView? = null
     private val lines = linkedMapOf<String, String>()
+    private var worst: String? = null
 
     fun show(ctx: Context) {
         if (root != null) return
@@ -29,11 +39,11 @@ object FloatingBubble {
             orientation = LinearLayout.VERTICAL
         }
 
-        val icon = TextView(context).apply {
+        val ic = TextView(context).apply {
             text = "🌐"
             textSize = 22f
             setPadding(28, 18, 28, 18)
-            setBackgroundColor(0xCC1565C0.toInt())
+            setBackgroundColor(BLUE)
             setTextColor(0xFFFFFFFF.toInt())
         }
 
@@ -46,10 +56,11 @@ object FloatingBubble {
             textDirection = View.TEXT_DIRECTION_RTL
         }
 
-        container.addView(icon)
+        container.addView(ic)
         container.addView(tv)
         root = container
         panel = tv
+        icon = ic
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -74,7 +85,7 @@ object FloatingBubble {
         var startY = 0
         var touchX = 0f
         var touchY = 0f
-        icon.setOnTouchListener { _, e ->
+        ic.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = lp.x; startY = lp.y
@@ -101,13 +112,27 @@ object FloatingBubble {
         w.addView(container, lp)
     }
 
-    /** מוסיף/מעדכן שורת תרגום ומציג בפאנל (מונע כפילויות, שומר 12 אחרונות). */
-    fun append(src: String, he: String) {
+    /**
+     * מוסיף שורת תרגום ומציג בפאנל. אם severity לא null (קוד DTC ידוע),
+     * צובע את אייקון הבועה לפי החומרה הגבוהה ביותר שזוהתה.
+     */
+    fun append(src: String, he: String, severity: String? = null) {
         val tv = panel ?: return
-        if (lines[src] == he) return
-        lines[src] = he
-        while (lines.size > 12) lines.remove(lines.keys.first())
-        val text = lines.values.joinToString("\n")
-        tv.post { tv.text = text }
+        if (lines[src] != he) {
+            lines[src] = he
+            while (lines.size > 14) lines.remove(lines.keys.first())
+            val text = lines.values.joinToString("\n")
+            tv.post { tv.text = text }
+        }
+        if (severity != null) {
+            val ic = icon ?: return
+            val better = worst == null ||
+                (SEV_RANK[severity] ?: 9) < (SEV_RANK[worst] ?: 9)
+            if (better) {
+                worst = severity
+                val color = SEV_COLOR[severity] ?: BLUE
+                ic.post { ic.setBackgroundColor(color) }
+            }
+        }
     }
 }

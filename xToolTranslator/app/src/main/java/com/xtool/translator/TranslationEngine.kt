@@ -6,7 +6,13 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 import com.google.mlkit.common.model.DownloadConditions
 import java.util.concurrent.ConcurrentHashMap
 
-/** מנוע תרגום אנגלית→עברית (On-Device, אופליין) משותף לשני השירותים. */
+/** תוצאת תרגום — טקסט בעברית + חומרה (RED/YELLOW/GREEN) אם זה קוד DTC ידוע. */
+data class TransResult(val text: String, val severity: String? = null)
+
+/**
+ * מנוע "היברידי": קוד DTC ידוע → מבסיס הידע (הסבר+חומרה+פעולה),
+ * מונח סורק → מהמילון המקצועי, וכל השאר → ML Kit Translate (אופליין).
+ */
 object TranslationEngine {
 
     private val translator = Translation.getClient(
@@ -18,21 +24,35 @@ object TranslationEngine {
 
     private val cache = ConcurrentHashMap<String, String>()
 
-    /** מוריד את מודל התרגום פעם אחת (גם בלי Wi-Fi). */
     fun warmUp() {
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
     }
 
-    fun translate(src: String, callback: (String) -> Unit) {
-        val cached = cache[src]
-        if (cached != null) {
-            callback(cached)
+    fun resolve(src: String, callback: (TransResult) -> Unit) {
+        // 1. קוד DTC ידוע → הסבר + חומרה + פעולה
+        Knowledge.findDtc(src)?.let { (code, info) ->
+            callback(TransResult("$code — ${info.titleHe}\n↪ ${info.actionHe}", info.severity))
             return
         }
+
+        // 2. מונח סורק במילון המקצועי (התאמה מדויקת, חסר תלות ברישיות)
+        val key = src.trim().lowercase()
+        Knowledge.GLOSSARY[key]?.let {
+            callback(TransResult(it))
+            return
+        }
+
+        // 3. כבר תורגם → מהמטמון
+        cache[src]?.let {
+            callback(TransResult(it))
+            return
+        }
+
+        // 4. נפילה לתרגום מכונה
         translator.translate(src)
             .addOnSuccessListener { he ->
                 cache[src] = he
-                callback(he)
+                callback(TransResult(he))
             }
     }
 }

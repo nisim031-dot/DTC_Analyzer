@@ -106,7 +106,7 @@ class LiveTranslateService : Service() {
                     for (line in block.lines) {
                         val t = line.text.trim()
                         if (t.isNotEmpty()) {
-                            TranslationEngine.translate(t) { he -> FloatingBubble.append(t, he) }
+                            TranslationEngine.resolve(t) { r -> FloatingBubble.append(t, r.text, r.severity) }
                         }
                     }
                 }
