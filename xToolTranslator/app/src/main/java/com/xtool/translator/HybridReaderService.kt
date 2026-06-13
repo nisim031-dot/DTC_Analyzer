@@ -12,7 +12,10 @@ class HybridReaderService : AccessibilityService() {
         val texts = ArrayList<String>()
         collectText(root, texts)
         for (t in texts.distinct().take(20)) {
-            TranslationEngine.resolve(t) { r -> FloatingBubble.append(t, r.text, r.severity) }
+            TranslationEngine.resolve(t) { r ->
+                FloatingBubble.append(t, r.text, r.severity)
+                if (r.severity == "RED") Alerts.redAlert(this)
+            }
         }
     }
 

@@ -48,11 +48,15 @@ object TranslationEngine {
             return
         }
 
-        // 4. נפילה לתרגום מכונה
+        // 4. נפילה לתרגום מכונה — תמיד מחזיר callback (גם בכישלון) כדי שמוני
+        //    ה-pending בצד הקורא לא ייתקעו ושכבת ה-AR תמיד תתרנדר.
         translator.translate(src)
             .addOnSuccessListener { he ->
                 cache[src] = he
                 callback(TransResult(he))
+            }
+            .addOnFailureListener {
+                callback(TransResult(src))   // נשאיר את הטקסט המקורי אם התרגום נכשל
             }
     }
 }
