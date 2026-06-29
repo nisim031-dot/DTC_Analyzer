@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">תרגום XTOOL</string>
+    <string name="accessibility_description">קורא טקסט מהמסך כדי להציג תרגום עברי מעל ממשק האבחון של XTOOL.</string>
+
+    <!-- אונבורדינג -->
+    <string name="onboarding_title">הגדרת בוט התרגום ל-XTOOL D7BT</string>
+    <string name="step_accessibility">1. הפעל את שירות הנגישות "תרגום XTOOL"</string>
+    <string name="step_overlay">2. אשר הצגה מעל אפליקציות אחרות</string>
+    <string name="step_capture">3. אשר לכידת מסך (גיבוי OCR)</string>
+    <string name="step_model">4. הורד מודל תרגום עברית (חד-פעמי, דורש אינטרנט)</string>
+    <string name="step_battery">5. בטל אופטימיזציית סוללה לשירות</string>
+    <string name="open_settings">פתח הגדרות</string>
+    <string name="download_model">הורד מודל</string>
+    <string name="status_done">✓ הושלם</string>
+    <string name="status_pending">○ ממתין</string>
+    <string name="model_downloading">מוריד מודל עברית…</string>
+</resources>

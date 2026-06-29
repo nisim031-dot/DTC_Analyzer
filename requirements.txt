@@ -1,0 +1,11 @@
+# תלויות לבוט המוסך (garage_bot_v2.py)
+pdfplumber
+pyTelegramBotAPI
+google-generativeai
+langchain-google-genai
+langchain-community
+chromadb
+python-dotenv
+
+# כלי עזר נוסף (split_manual.py)
+PyMuPDF
